@@ -1,6 +1,6 @@
 #pragma once
 
-#include "AbstractClientConnection.h"
+#include "core/AbstractClientConnection.h"
 
 #include <QHash>
 
@@ -10,12 +10,15 @@ class IrcBufferModel;
 class IrcBuffer;
 class IrcUserModel;
 class IrcMessage;
+class IrcUser;
 
 class IrcServer : public AbstractClientConnection
 {
 	Q_OBJECT
 public:
 	explicit IrcServer(const QJsonObject &settings, QObject *parent = nullptr);
+
+	void ready() override;
 
 	void disconnectFromHost();
 
@@ -25,6 +28,8 @@ protected:
 private slots:
 	void addedBuffer(IrcBuffer *buffer);
 	void removedBuffer(IrcBuffer *buffer);
+	void addedUser(IrcUser *user);
+	void removedUser(IrcUser *user);
 	void messageReceived(IrcMessage *msg);
 
 private:
@@ -41,9 +46,6 @@ class IrcClientConnection : public AbstractClientConnection
 	Q_OBJECT
 public:
 	explicit IrcClientConnection(QObject *parent = nullptr);
-
-signals:
-	void newIrcServer(IrcServer *server);
 
 protected:
 	void toClient(const QJsonObject &obj) override;

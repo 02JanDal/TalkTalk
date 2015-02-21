@@ -1,7 +1,5 @@
 #include "AbstractClientConnection.h"
 
-#include <QDebug>
-
 #include "common/Json.h"
 
 AbstractClientConnection::AbstractClientConnection(QObject *parent)
@@ -14,14 +12,6 @@ void AbstractClientConnection::receive(const QString &channel, const QString &cm
 	if (!m_channels.contains(channel) && !m_monitor)
 	{
 		return;
-	}
-	if (replyTo.isNull())
-	{
-		qDebug() << this << "Got" << cmd << "on" << channel << ":" << data;
-	}
-	else
-	{
-		qDebug() << this << "Got" << cmd << "on" << channel << ":" << data << "as a reply to" << replyTo.toString();
 	}
 	QJsonObject obj = data;
 	obj["channel"] = channel;
@@ -38,12 +28,12 @@ void AbstractClientConnection::fromClient(const QJsonObject &obj)
 {
 	using namespace Json;
 
-	const QString channel = ensureIsType<QString>(obj, "channel", "");
-	const QString cmd = ensureIsType<QString>(obj, "cmd");
+	const QString channel = ensureString(obj, "channel", "");
+	const QString cmd = ensureString(obj, "cmd");
 
 	if (cmd == "ping")
 	{
-		toClient({{"cmd", "pong"}, {"channel", ""}, {"timestamp", ensureIsType<int>(obj, "timestamp")}});
+		toClient({{"cmd", "pong"}, {"channel", ""}, {"timestamp", ensureInteger(obj, "timestamp")}});
 	}
 	else if (cmd == "subscribe")
 	{
@@ -55,11 +45,11 @@ void AbstractClientConnection::fromClient(const QJsonObject &obj)
 	}
 	else if (cmd == "monitor")
 	{
-		setMonitor(ensureIsType<bool>(obj, QStringLiteral("value")));
+		setMonitor(ensureBoolean(obj, QStringLiteral("value")));
 	}
 	else
 	{
-		emit broadcast(channel, cmd, ensureObject(obj, "data"));
+		emit broadcast(channel, cmd, obj);
 	}
 }
 

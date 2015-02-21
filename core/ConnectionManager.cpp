@@ -1,7 +1,5 @@
 #include "ConnectionManager.h"
 
-#include <QDebug>
-
 #include "AbstractClientConnection.h"
 
 ConnectionManager::ConnectionManager(QObject *parent)
@@ -12,6 +10,7 @@ ConnectionManager::ConnectionManager(QObject *parent)
 void ConnectionManager::newConnection(AbstractClientConnection *connection)
 {
 	connect(connection, &QObject::destroyed, this, &ConnectionManager::connectionDestroyed);
+	connect(connection, &AbstractClientConnection::newConnection, this, &ConnectionManager::newConnection);
 	for (auto other : m_connections)
 	{
 		connect(connection, &AbstractClientConnection::broadcast, other, &AbstractClientConnection::receive);
@@ -22,5 +21,5 @@ void ConnectionManager::newConnection(AbstractClientConnection *connection)
 
 void ConnectionManager::connectionDestroyed(QObject *connection)
 {
-	m_connections.removeAll(qobject_cast<AbstractClientConnection *>(connection));
+	m_connections.removeAll(static_cast<AbstractClientConnection *>(connection));
 }

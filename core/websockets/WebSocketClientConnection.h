@@ -2,7 +2,7 @@
 
 #include <QObject>
 
-#include "AbstractClientConnection.h"
+#include "core/AbstractClientConnection.h"
 
 class QWebSocket;
 

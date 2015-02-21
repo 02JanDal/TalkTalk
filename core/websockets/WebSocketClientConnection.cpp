@@ -3,11 +3,14 @@
 #include <QWebSocket>
 
 #include "common/Json.h"
+#include "WebSocketServer.h"
 
 WebSocketClientConnection::WebSocketClientConnection(QWebSocket *socket, QObject *parent)
 	: AbstractClientConnection(parent), m_socket(socket)
 {
 	m_socket->setParent(this);
+
+	qCDebug(WebSocket) << "New WebSocket connection from" << WebSocketServer::formatAddress(m_socket->peerAddress(), m_socket->peerPort());
 
 	connect(m_socket, &QWebSocket::binaryMessageReceived, this, &WebSocketClientConnection::binaryReceived);
 	connect(m_socket, &QWebSocket::textMessageReceived, this, &WebSocketClientConnection::textReceived);
@@ -21,8 +24,8 @@ void WebSocketClientConnection::binaryReceived(const QByteArray &msg)
 	try
 	{
 		const QJsonObject obj = Json::ensureObject(Json::ensureDocument(msg));
-		channel = Json::ensureIsType<QString>(obj, "channel");
-		messageId = Json::ensureIsType<int>(obj, "messageId");
+		channel = Json::ensureString(obj, "channel");
+		messageId = Json::ensureInteger(obj, "messageId");
 		fromClient(obj);
 	}
 	catch (Exception &e)
@@ -37,6 +40,7 @@ void WebSocketClientConnection::textReceived(const QString &msg)
 
 void WebSocketClientConnection::disconnected()
 {
+	qCDebug(WebSocket) << WebSocketServer::formatAddress(m_socket->peerAddress(), m_socket->peerPort()) << "disconnected";
 	m_socket = nullptr;
 	deleteLater();
 }

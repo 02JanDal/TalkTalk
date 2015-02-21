@@ -2,47 +2,58 @@
 #include <QCommandLineParser>
 #include <QDebug>
 #include <QJsonArray>
+#include <QThread>
 
-#include "TcpServer.h"
+#include "tcp/TcpServer.h"
 #include "ConnectionManager.h"
 #include "AbstractClientConnection.h"
 
 #ifdef TALKTALK_CORE_WEBSOCKETS
-# include "WebSocketServer.h"
+# include "websockets/WebSocketServer.h"
 #endif
 
 #ifdef TALKTALK_CORE_IRC
-# include "IrcClientConnection.h"
+# include "irc/IrcClientConnection.h"
 #endif
 
-class DummyClient : public AbstractClientConnection
+#ifdef Q_OS_UNIX
+#include <signal.h>
+
+static void handleSignal(int sig, siginfo_t *si, void *unused)
 {
-	Q_OBJECT
-public:
-	explicit DummyClient()
-		: AbstractClientConnection(nullptr)
+	if (sig == SIGSEGV)
 	{
-		setMonitor(true);
+		qCritical() << "Caught segfault at" << si->si_addr;
 	}
+	abort();
+}
+#endif
 
-public slots:
-	void run()
-	{
-		emit broadcast("irc:servers", "add", {{"host", "irc.esper.net"},
-											  {"realName", "TalkTalk"},
-											  {"nickNames", QJsonArray::fromStringList(QStringList() << "TalkTalk")},
-											  {"displayName", "TalkTalk"},
-											  {"userName", "TalkTalk"}});
-		emit broadcast("chat:channel:irc.esper.net", "send", {{"msg", "/join #jan_test_channel"}});
-		emit broadcast("irc:server:irc.esper.net", "connect");
-	}
+static void setupMainClient(ConnectionManager *mngr, AbstractClientConnection *client)
+{
+	mngr->newConnection(client);
 
-private:
-	void toClient(const QJsonObject &obj) override {}
-};
+	QThread *thread = new QThread;
+	client->moveToThread(thread);
+	QObject::connect(thread, &QThread::started, client, &AbstractClientConnection::ready);
+	QObject::connect(thread, &QThread::finished, client, &AbstractClientConnection::deleteLater);
+	QObject::connect(client, &AbstractClientConnection::destroyed, thread, &QThread::deleteLater);
+	thread->start();
+}
 
 int main(int argc, char **argv)
 {
+	qSetMessagePattern("[%{time hh:mm:ss.zzz}][%{category}][%{if-debug}DEBUG%{endif}%{if-warning}WARNING%{endif}%{if-critical}CRITICAL%{endif}%{if-fatal}FATAL%{endif}] %{message}%{if-critical}\n\t%{backtrace depth=10 separator=\"\n\t\"}%{endif}");
+
+#ifdef Q_OS_UNIX
+	struct sigaction sa;
+	memset(&sa, 0, sizeof(struct sigaction));
+	sa.sa_flags = SA_SIGINFO;
+	sigemptyset(&sa.sa_mask);
+	sa.sa_sigaction = handleSignal;
+	sigaction(SIGSEGV, &sa, NULL);
+#endif
+
 	QCoreApplication app(argc, argv);
 	app.setApplicationName("TalkTalkCore");
 	app.setOrganizationName("Jan Dalheimer");
@@ -56,35 +67,17 @@ int main(int argc, char **argv)
 	parser.addOption(QCommandLineOption("ws-port", "The port to listen on for WebSocket connections", "PORT", "11102"));
 	parser.process(app);
 
-	ConnectionManager mngr;
+	ConnectionManager *mngr = new ConnectionManager;
 
-	TcpServer tcpServer;
-	QObject::connect(&tcpServer, &TcpServer::newConnection, &mngr, &ConnectionManager::newConnection);
-	if (!tcpServer.listen(QHostAddress(parser.value("tcp-listen")), parser.value("tcp-port").toULong()))
-	{
-		qWarning() << "Unable to start TCP server:" << tcpServer.errorString();
-		return -1;
-	}
+	setupMainClient(mngr, new TcpServer(QHostAddress(parser.value("tcp-listen")), parser.value("tcp-port").toULong()));
 
 #ifdef TALKTALK_CORE_WEBSOCKETS
-	WebSocketServer wsServer;
-	QObject::connect(&wsServer, &WebSocketServer::newConnection, &mngr, &ConnectionManager::newConnection);
-	if (!wsServer.listen(QHostAddress(parser.value("ws-listen")), parser.value("ws-port").toULong()))
-	{
-		qWarning() << "Unable to start WebSocket server:" << wsServer.errorString();
-		return -1;
-	}
+	setupMainClient(mngr, new WebSocketServer(QHostAddress(parser.value("ws-listen")), parser.value("ws-port").toULong()));
 #endif
 
 #ifdef TALKTALK_CORE_IRC
-	IrcClientConnection ircClient;
-	mngr.newConnection(&ircClient);
-	QObject::connect(&ircClient, &IrcClientConnection::newIrcServer, &mngr, &ConnectionManager::newConnection);
+	setupMainClient(mngr, new IrcClientConnection);
 #endif
-
-	DummyClient client;
-	mngr.newConnection(&client);
-	QMetaObject::invokeMethod(&client, "run", Qt::QueuedConnection);
 
 	return app.exec();
 }

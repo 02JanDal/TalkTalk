@@ -8,15 +8,19 @@ class ServerConnection;
 
 class AbstractConsumer
 {
+protected:
+	explicit AbstractConsumer(ServerConnection *server);
+
 public:
 	virtual ~AbstractConsumer();
 
 	virtual void consume(const QString &channel, const QString &cmd, const QJsonObject &data) = 0;
+	virtual void connectionEstablished() {}
 
-	void setServerConnection(ServerConnection *serverConnection);
 	QStringList channels() const { return m_channels; }
 
 protected:
+	friend class ServerConnection;
 	void subscribeTo(const QString &channel);
 	void unsubscribeFrom(const QString &channel);
 	void emitMsg(const QString &channel, const QString &msg, const QJsonObject &data = QJsonObject(), const QUuid &replyTo = QUuid());

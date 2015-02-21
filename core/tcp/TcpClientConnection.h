@@ -1,6 +1,6 @@
 #pragma once
 
-#include "AbstractClientConnection.h"
+#include "core/AbstractClientConnection.h"
 
 class QTcpSocket;
 

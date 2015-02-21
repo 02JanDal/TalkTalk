@@ -15,16 +15,28 @@ ServerConnection::ServerConnection(const QString &host, const quint16 port, QObj
 	connect(m_socket, &QTcpSocket::readyRead, this, &ServerConnection::socketDataReady);
 }
 
+ServerConnection::~ServerConnection()
+{
+	for (AbstractConsumer *consumer : m_consumers)
+	{
+		delete consumer;
+	}
+}
+
 void ServerConnection::registerConsumer(AbstractConsumer *consumer)
 {
 	m_consumers.append(consumer);
+	for (const QString &channel : consumer->channels())
+	{
+		subscribeConsumerTo(consumer, channel);
+	}
 }
 void ServerConnection::unregisterConsumer(AbstractConsumer *consumer)
 {
 	m_consumers.removeAll(consumer);
 	for (const QString &channel : m_subscriptions.keys())
 	{
-		m_subscriptions[channel].removeAll(consumer);
+		unsubscribeConsumerFrom(consumer, channel);
 	}
 }
 
@@ -32,22 +44,44 @@ void ServerConnection::connectToHost()
 {
 	m_socket->connectToHost(m_host, m_port);
 }
+void ServerConnection::disconnectFromHost()
+{
+	m_socket->disconnectFromHost();
+}
 
 void ServerConnection::subscribeConsumerTo(AbstractConsumer *consumer, const QString &channel)
 {
+	if (!m_subscriptions.contains(channel))
+	{
+		if (channel == "*")
+		{
+			sendFromConsumer("general", "monitor", {{"value", true}}, QUuid());
+		}
+		else
+		{
+			sendFromConsumer(channel, "subscribe", {}, QUuid());
+		}
+	}
 	m_subscriptions[channel].append(consumer);
 }
 void ServerConnection::unsubscribeConsumerFrom(AbstractConsumer *consumer, const QString &channel)
 {
 	m_subscriptions[channel].removeAll(consumer);
+	if (m_subscriptions[channel].isEmpty())
+	{
+		if (channel == "*")
+		{
+			sendFromConsumer("general", "monitor", {{"value", false}}, QUuid());
+		}
+		else
+		{
+			sendFromConsumer(channel, "unsubscribe", {}, QUuid());
+		}
+		m_subscriptions.remove(channel);
+	}
 }
 void ServerConnection::sendFromConsumer(const QString &channel, const QString &cmd, const QJsonObject &data, const QUuid &replyTo)
 {
-	if (m_socket->state() != QTcpSocket::ConnectedState)
-	{
-		return;
-	}
-
 	QJsonObject obj = data;
 	obj["channel"] = channel;
 	obj["cmd"] = cmd;
@@ -57,11 +91,15 @@ void ServerConnection::sendFromConsumer(const QString &channel, const QString &c
 		obj["replyTo"] = Json::toJson(replyTo);
 	}
 
-	const QByteArray raw = Json::toBinary(obj);
-	QDataStream str(m_socket);
-	str.setByteOrder(QDataStream::LittleEndian);
-	str << (quint32) raw.size();
-	m_socket->write(raw);
+	qDebug() << "sending" << obj;
+	if (m_socket->state() == QTcpSocket::ConnectedState)
+	{
+		TcpUtils::writePacket(m_socket, Json::toBinary(obj));
+	}
+	else
+	{
+		m_messageQueue.append(Json::toBinary(obj));
+	}
 }
 
 void ServerConnection::socketChangedState()
@@ -81,6 +119,10 @@ void ServerConnection::socketChangedState()
 	case QAbstractSocket::ConnectedState:
 		emit message(tr("Connected!"));
 		emit connected();
+		for (const QByteArray &msg : m_messageQueue)
+		{
+			TcpUtils::writePacket(m_socket, msg);
+		}
 		break;
 	case QAbstractSocket::BoundState:
 		break;
@@ -97,22 +139,36 @@ void ServerConnection::socketError()
 void ServerConnection::socketDataReady()
 {
 	using namespace Json;
-	QString channel;
-	QUuid messageId;
-	try
-	{
-		const QJsonObject obj = ensureObject(ensureDocument(TcpUtils::readPacket(m_socket)));
-		channel = ensureIsType<QString>(obj, "channel");
-		messageId = ensureIsType<QUuid>(obj, "msgId");
-		const QString cmd = ensureIsType<QString>(obj, "cmd");
 
-		for (AbstractConsumer *consumer : m_subscriptions[channel])
-		{
-			consumer->consume(channel, cmd, obj);
-		}
-	}
-	catch (Exception &e)
+	while (m_socket->bytesAvailable() > 0)
 	{
-		sendFromConsumer(channel, "error", {{"error", e.message()}}, messageId);
+		QString channel;
+		QUuid messageId;
+		try
+		{
+			const QJsonObject obj = ensureObject(ensureDocument(TcpUtils::readPacket(m_socket)));
+			channel = ensureString(obj, "channel");
+			messageId = ensureUuid(obj, "msgId");
+			const QString cmd = ensureString(obj, "cmd");
+			qDebug() << "Got" << cmd << "on" << channel << ":" << obj;
+
+			QList<AbstractConsumer *> notifiedConsumers;
+			for (AbstractConsumer *consumer : m_subscriptions[channel])
+			{
+				consumer->consume(channel, cmd, obj);
+				notifiedConsumers += consumer;
+			}
+			for (AbstractConsumer *consumer : m_subscriptions["*"])
+			{
+				if (!notifiedConsumers.contains(consumer))
+				{
+					consumer->consume(channel, cmd, obj);
+				}
+			}
+		}
+		catch (Exception &e)
+		{
+			sendFromConsumer(channel, "error", {{"error", e.message()}}, messageId);
+		}
 	}
 }

@@ -33,12 +33,6 @@ QJsonDocument ensureDocument(const QByteArray &data);
 QJsonDocument ensureDocument(const QString &filename);
 QJsonObject ensureObject(const QJsonDocument &doc, const QString &what = "Document");
 QJsonArray ensureArray(const QJsonDocument &doc, const QString &what = "Document");
-QJsonObject ensureObject(const QJsonValue &value, const QString &what = "Value");
-QJsonObject ensureObject(const QJsonObject &parent, const QString &key,
-						 const QString &what = "Value");
-QJsonArray ensureArray(const QJsonValue &value, const QString &what = "Value");
-QJsonArray ensureArray(const QJsonObject &parent, const QString &key,
-					   const QString &what = "Value");
 
 template<typename T>
 QJsonValue toJson(const T &t)
@@ -172,7 +166,7 @@ ensureIsType(const QJsonValue &value, const Requirement requirement = Required,
 
 template <typename T>
 typename std::enable_if<std::is_same<T, QDir>::value, T>::type
-ensureIsType(const QJsonValue &value, const Requirement requirement, const QString &what)
+ensureIsType(const QJsonValue &value, const Requirement requirement = Required, const QString &what = "Value")
 {
 	const QString string = ensureIsType<QString>(value, requirement, what);
 	return QDir::current().absoluteFilePath(string);
@@ -180,7 +174,7 @@ ensureIsType(const QJsonValue &value, const Requirement requirement, const QStri
 
 template <typename T>
 typename std::enable_if<std::is_same<T, QUuid>::value, T>::type
-ensureIsType(const QJsonValue &value, const Requirement requirement, const QString &what)
+ensureIsType(const QJsonValue &value, const Requirement requirement = Required, const QString &what = "Value")
 {
 	const QString string = ensureIsType<QString>(value, requirement, what);
 	const QUuid uuid = QUuid(string);
@@ -193,7 +187,7 @@ ensureIsType(const QJsonValue &value, const Requirement requirement, const QStri
 
 template <typename T>
 typename std::enable_if<std::is_same<T, QJsonObject>::value, T>::type
-ensureIsType(const QJsonValue &value, const Requirement requirement, const QString &what)
+ensureIsType(const QJsonValue &value, const Requirement requirement = Required, const QString &what = "Value")
 {
 	if (!value.isObject())
 	{
@@ -204,7 +198,7 @@ ensureIsType(const QJsonValue &value, const Requirement requirement, const QStri
 
 template <typename T>
 typename std::enable_if<std::is_same<T, QJsonArray>::value, T>::type
-ensureIsType(const QJsonValue &value, const Requirement requirement, const QString &what)
+ensureIsType(const QJsonValue &value, const Requirement requirement = Required, const QString &what = "Value")
 {
 	if (!value.isArray())
 	{
@@ -215,7 +209,7 @@ ensureIsType(const QJsonValue &value, const Requirement requirement, const QStri
 
 template <typename T>
 typename std::enable_if<std::is_same<T, QVariant>::value, T>::type
-ensureIsType(const QJsonValue &value, const Requirement requirement, const QString &what)
+ensureIsType(const QJsonValue &value, const Requirement requirement = Required, const QString &what = "Value")
 {
 	if (value.isNull() || value.isUndefined())
 	{
@@ -264,7 +258,7 @@ template <typename T>
 QList<T> ensureIsArrayOf(const QJsonValue &value, const Requirement = Required,
 						 const QString &what = "Value")
 {
-	const QJsonArray array = ensureArray(value, what);
+	const QJsonArray array = ensureIsType<QJsonArray>(value, Required, what);
 	QList<T> out;
 	for (const QJsonValue val : array)
 	{
@@ -305,4 +299,31 @@ QList<T> ensureIsArrayOf(const QJsonObject &parent, const QString &key,
 	}
 	return ensureIsArrayOf<T>(parent.value(key), default_, localWhat);
 }
+
+// this macro part could be replaced by variadic functions that just pass on their arguments, but that wouldn't work well with IDE helpers
+#define JSON_HELPERFUNCTIONS(NAME, TYPE) \
+	inline TYPE ensure##NAME(const QJsonValue &value, const Requirement requirement = Required, const QString &what = "Value") \
+{ return ensureIsType<TYPE>(value, requirement, what); } \
+	inline TYPE ensure##NAME(const QJsonValue &value, const TYPE default_, const QString &what = "Value") \
+{ return ensureIsType<TYPE>(value, default_, what); } \
+	inline TYPE ensure##NAME(const QJsonObject &parent, const QString &key, const Requirement requirement = Required, const QString &what = "__placeholder__") \
+{ return ensureIsType<TYPE>(parent, key, requirement, what); } \
+	inline TYPE ensure##NAME(const QJsonObject &parent, const QString &key, const TYPE default_, const QString &what = "__placeholder") \
+{ return ensureIsType<TYPE>(parent, key, default_, what); }
+
+JSON_HELPERFUNCTIONS(Array, QJsonArray)
+JSON_HELPERFUNCTIONS(Object, QJsonObject)
+JSON_HELPERFUNCTIONS(String, QString)
+JSON_HELPERFUNCTIONS(Boolean, bool)
+JSON_HELPERFUNCTIONS(Double, double)
+JSON_HELPERFUNCTIONS(Integer, int)
+JSON_HELPERFUNCTIONS(DateTime, QDateTime)
+JSON_HELPERFUNCTIONS(Url, QUrl)
+JSON_HELPERFUNCTIONS(ByteArray, QByteArray)
+JSON_HELPERFUNCTIONS(Dir, QDir)
+JSON_HELPERFUNCTIONS(Uuid, QUuid)
+JSON_HELPERFUNCTIONS(Variant, QVariant)
+
+#undef JSON_HELPERFUNCTIONS
+
 }

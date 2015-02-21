@@ -85,41 +85,6 @@ QJsonArray Json::ensureArray(const QJsonDocument &doc, const QString &what)
 	return doc.array();
 }
 
-QJsonObject Json::ensureObject(const QJsonValue &value, const QString &what)
-{
-	if (!value.isObject())
-	{
-		throw JsonException(what + " is not an object");
-	}
-	return value.toObject();
-}
-QJsonObject Json::ensureObject(const QJsonObject &parent, const QString &key,
-							   const QString &what)
-{
-	if (!parent.contains(key))
-	{
-		throw JsonException(what + "s parent does not contain " + what);
-	}
-	return Json::ensureObject(parent.value(key), what);
-}
-
-QJsonArray Json::ensureArray(const QJsonValue &value, const QString &what)
-{
-	if (!value.isArray())
-	{
-		throw JsonException(what + " is not an array");
-	}
-	return value.toArray();
-}
-QJsonArray Json::ensureArray(const QJsonObject &parent, const QString &key, const QString &what)
-{
-	if (!parent.contains(key))
-	{
-		throw JsonException(what + "s parent does not contain " + what);
-	}
-	return Json::ensureArray(parent.value(key), what);
-}
-
 template<>
 QJsonValue Json::toJson<QUrl>(const QUrl &url)
 {

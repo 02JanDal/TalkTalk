@@ -4,12 +4,15 @@
 #include <QStringList>
 #include <QUuid>
 #include <QJsonObject>
+#include <QLoggingCategory>
 
 class AbstractClientConnection : public QObject
 {
 	Q_OBJECT
 public:
 	virtual ~AbstractClientConnection() {}
+
+	virtual void ready() {}
 
 public slots:
 	/// This gets called by ConnectionManager, and formats the message before sending it out using toClient
@@ -18,6 +21,9 @@ public slots:
 signals:
 	/// This gets emitted by subclasses of AbstractClientConnection, and is routed to other's AbstractClientConnection::receive through ConnectionManager
 	void broadcast(const QString &channel, const QString &cmd, const QJsonObject &data = QJsonObject(), const QUuid &replyTo = QUuid());
+
+	/// Emit this if this AbstractClientConnection has produced a new AbstractClientConnection
+	void newConnection(AbstractClientConnection *client);
 
 protected:
 	explicit AbstractClientConnection(QObject *parent = nullptr);
@@ -35,4 +41,3 @@ private:
 	QStringList m_channels;
 	bool m_monitor = false; ///< If true, receives messages on all channels
 };
-//Q_DECLARE_METATYPE(AbstractClientConnection*)

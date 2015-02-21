@@ -4,6 +4,7 @@
 
 #include "common/Json.h"
 #include "common/TcpUtils.h"
+#include "TcpServer.h"
 
 TcpClientConnection::TcpClientConnection(qintptr handle)
 	: AbstractClientConnection(nullptr), m_handle(handle)
@@ -16,6 +17,7 @@ void TcpClientConnection::setup()
 	connect(m_socket, &QTcpSocket::readyRead, this, &TcpClientConnection::readyRead);
 	connect(m_socket, &QTcpSocket::disconnected, this, &TcpClientConnection::disconnected);
 	m_socket->setSocketDescriptor(m_handle);
+	qCDebug(Tcp) << "New TCP connection from" << TcpServer::formatAddress(m_socket->peerAddress(), m_socket->peerPort());
 }
 
 void TcpClientConnection::toClient(const QJsonObject &obj)
@@ -25,23 +27,27 @@ void TcpClientConnection::toClient(const QJsonObject &obj)
 
 void TcpClientConnection::readyRead()
 {
-	QString channel;
-	int messageId;
-	try
+	while (m_socket->bytesAvailable() > 0)
 	{
-		const QJsonObject obj = Json::ensureObject(Json::ensureDocument(TcpUtils::readPacket(m_socket)));
-		channel = Json::ensureIsType<QString>(obj, "channel");
-		messageId = Json::ensureIsType<int>(obj, "messageId");
-		fromClient(obj);
-	}
-	catch (Exception &e)
-	{
-		toClient(QJsonObject({{"cmd", "error"}, {"error", e.message()}, {"channel", channel}, {"messageId", messageId}}));
+		QString channel;
+		QUuid messageId;
+		try
+		{
+			const QJsonObject obj = Json::ensureObject(Json::ensureDocument(TcpUtils::readPacket(m_socket)));
+			channel = Json::ensureString(obj, "channel");
+			messageId = Json::ensureUuid(obj, "msgId");
+			fromClient(obj);
+		}
+		catch (Exception &e)
+		{
+			receive(channel, "error", {{"error", e.message()}}, messageId);
+		}
 	}
 }
 
 void TcpClientConnection::disconnected()
 {
+	qCDebug(Tcp) << TcpServer::formatAddress(m_socket->peerAddress(), m_socket->peerPort()) << "disconnected";
 	m_socket = nullptr;
 	deleteLater();
 }
