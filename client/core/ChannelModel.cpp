@@ -8,9 +8,6 @@ ChannelModel::ChannelModel(ServerConnection *server, const QString &channelId, Q
 	: QAbstractListModel(parent), AbstractConsumer(server), m_channelId(channelId)
 {
 	subscribeTo("chat:channel:" + m_channelId);
-
-	emitMsg("chat:channel:" + m_channelId, "wantUsers");
-	emitMsg("chat:channel:" + m_channelId, "wantInfo");
 }
 
 int ChannelModel::rowCount(const QModelIndex &parent) const

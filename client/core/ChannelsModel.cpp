@@ -3,10 +3,12 @@
 #include "common/Json.h"
 
 ChannelsModel::ChannelsModel(ServerConnection *server, QObject *parent)
-	: QAbstractItemModel(parent), AbstractConsumer(server)
+	: QAbstractItemModel(parent)
 {
-	subscribeTo("chat:channels");
-	emitMsg("chat:channels", "list");
+	m_list = new SyncedList(server, "chat:channels", "", "id", this);
+	connect(m_list, &SyncedList::added, this, &ChannelsModel::added);
+	connect(m_list, &SyncedList::removed, this, &ChannelsModel::removed);
+	connect(m_list, &SyncedList::changed, this, &ChannelsModel::changed);
 }
 
 int ChannelsModel::rowCount(const QModelIndex &parent) const
@@ -81,76 +83,69 @@ QString ChannelsModel::channelId(const QModelIndex &index) const
 	return static_cast<Channel *>(index.internalPointer())->id;
 }
 
-void ChannelsModel::consume(const QString &channel, const QString &cmd, const QJsonObject &data)
+void ChannelsModel::added(const QVariant &id)
 {
-	using namespace Json;
-
-	if (channel == "chat:channels")
+	Channel *channel = new Channel;
+	channel->id = id.toString();
+	channel->name = m_list->get(id, "name").toString();
+	channel->active = m_list->get(id, "active").toBool();
+	channel->type = Channel::typeFromString(m_list->get(id, "type").toString());
+	const QString parent = m_list->get(id, "parent").toString();
+	if (!parent.isEmpty() && m_channels.contains(parent))
 	{
-		if (cmd == "all")
+		channel->parent = m_channels[parent];
+
+		const int row = channel->parent->children.size();
+		beginInsertRows(index(channel->parent), row, row);
+		channel->parent->children.append(channel);
+		m_channels.insert(id.toString(), channel);
+		endInsertRows();
+	}
+	else
+	{
+		const int row = m_rootChannels.size();
+		beginInsertRows(QModelIndex(), row, row);
+		m_rootChannels.append(channel);
+		m_channels.insert(id.toString(), channel);
+		if (!parent.isEmpty())
 		{
-			const QList<QJsonObject> objs = ensureIsArrayOf<QJsonObject>(data, "channels");
-			QMap<QString, QString> channels;
-			for (const QJsonObject &obj : objs)
-			{
-				channels.insert(ensureString(obj, "id"), ensureString(obj, "parent"));
-			}
-			for (const QString &channel : channels.keys())
-			{
-				if (!m_channels.contains(channel))
-				{
-					channelAdded(channels[channel], channel);
-				}
-			}
-			for (const QString &channel : m_channels.keys())
-			{
-				if (!channels.contains(channel))
-				{
-					channelRemoved(channel);
-				}
-			}
+			m_channelsWithoutParents[parent].append(channel);
 		}
-		else if (cmd == "added")
+		endInsertRows();
+	}
+
+	if (m_channelsWithoutParents.contains(id.toString()))
+	{
+		for (Channel *c : m_channelsWithoutParents.value(id.toString()))
 		{
-			const QString channel = ensureString(data, "id");
-			const QString parent = ensureString(data, "parent");
-			if (!m_channels.contains(channel))
-			{
-				channelAdded(parent, channel);
-			}
-		}
-		else if (cmd == "removed")
-		{
-			const QString channel = ensureString(data, "id");
-			if (m_channels.contains(channel))
-			{
-				channelRemoved(channel);
-			}
+			const QModelIndex source = index(c);
+			beginMoveRows(source.parent(), source.row(), source.row(), index(channel), channel->children.size());
+			m_rootChannels.removeAll(c);
+			channel->children.append(c);
+			c->parent = channel;
+			endMoveRows();
 		}
 	}
-	else if (channel.startsWith("chat:channel:") && m_channels.contains(QString(channel).remove("chat:channel:")))
+}
+void ChannelsModel::removed(const QVariant &id)
+{
+	Channel *channel = m_channels[id.toString()];
+	Q_ASSERT(channel->parent); // we can't remove the root element
+	const int row = channel->parent->children.indexOf(channel);
+
+	beginRemoveRows(index(channel), row, row);
+	channel->parent->children.removeAt(row);
+	m_channels.remove(id.toString());
+	endRemoveRows();
+
+	delete channel;
+}
+void ChannelsModel::changed(const QVariant &id, const QString &property)
+{
+	Channel *channel = m_channels[id.toString()];
+	if (property == "name")
 	{
-		if (cmd == "info")
-		{
-			const QString channelId = QString(channel).remove("chat:channel:");
-			Channel *channel = m_channels[channelId];
-
-			const QString name = ensureString(data, "title");
-			const bool active = ensureBoolean(data, QStringLiteral("active"));
-			const QString type = ensureString(data, "type");
-
-			channel->name = name;
-			channel->active= active;
-			if (type == "pound")
-			{
-				channel->type = Channel::Pound;
-			}
-			else if (type == "user")
-			{
-				channel->type = Channel::User;
-			}
-			emit dataChanged(index(channel), index(channel));
-		}
+		emit dataChanged(index(channel), index(channel), QVector<int>() << Qt::DisplayRole);
 	}
 }
 
@@ -166,61 +161,18 @@ QModelIndex ChannelsModel::index(ChannelsModel::Channel *channel) const
 	}
 }
 
-void ChannelsModel::channelAdded(const QString &parent, const QString &id)
+ChannelsModel::Channel::Type ChannelsModel::Channel::typeFromString(const QString &str)
 {
-	Channel *channel = new Channel;
-	channel->id = id;
-	if (!parent.isEmpty() && m_channels.contains(parent))
+	if (str == "pound")
 	{
-		channel->parent = m_channels[parent];
-
-		const int row = channel->parent->children.size();
-		beginInsertRows(index(channel->parent), row, row);
-		channel->parent->children.append(channel);
-		m_channels.insert(id, channel);
-		endInsertRows();
+		return Pound;
+	}
+	else if (str == "user")
+	{
+		return User;
 	}
 	else
 	{
-		const int row = m_rootChannels.size();
-		beginInsertRows(QModelIndex(), row, row);
-		m_rootChannels.append(channel);
-		m_channels.insert(id, channel);
-		if (!parent.isEmpty())
-		{
-			m_channelsWithoutParents[parent].append(channel);
-		}
-		endInsertRows();
+		return Invalid;
 	}
-
-	if (m_channelsWithoutParents.contains(parent))
-	{
-		for (Channel *c : m_channelsWithoutParents.value(parent))
-		{
-			const QModelIndex source = index(c);
-			beginMoveRows(source.parent(), source.row(), source.row(), index(channel), channel->children.size());
-			m_rootChannels.removeAll(c);
-			channel->children.append(c);
-			c->parent = channel;
-			endMoveRows();
-		}
-	}
-
-	subscribeTo("chat:channel:" + id);
-	emitMsg("chat:channel:" + id, "wantInfo");
-}
-void ChannelsModel::channelRemoved(const QString &id)
-{
-	unsubscribeFrom("chat:channel:" + id);
-
-	Channel *channel = m_channels[id];
-	Q_ASSERT(channel->parent); // we can't remove the root element
-	const int row = channel->parent->children.indexOf(channel);
-
-	beginRemoveRows(index(channel), row, row);
-	channel->parent->children.removeAt(row);
-	m_channels.remove(id);
-	endRemoveRows();
-
-	delete channel;
 }

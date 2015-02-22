@@ -1,11 +1,15 @@
 #include "MainWindow.h"
 #include "ui_MainWindow.h"
 
+#include <KPageDialog>
+
 #include "client/core/ServerConnection.h"
 #include "client/core/MonitorModel.h"
 #include "client/core/ChannelsModel.h"
 #include "client/core/ChannelModel.h"
 #include "client/core/UsersModel.h"
+
+#include "pages/IRCServersPage.h"
 
 MainWindow::MainWindow(QWidget *parent) :
 	QMainWindow(parent),
@@ -86,6 +90,9 @@ void MainWindow::disconnectFromServer()
 }
 void MainWindow::showSettings()
 {
+	KPageDialog dlg(this);
+	dlg.addPage(IRCServersPage::createPage(m_server));
+	dlg.exec();
 }
 void MainWindow::showAbout()
 {
@@ -96,6 +103,11 @@ void MainWindow::showHelp()
 
 void MainWindow::messageEntered()
 {
+	if (m_currentChannel)
+	{
+		m_currentChannel->sendMessage(ui->lineEdit->text());
+		ui->lineEdit->clear();
+	}
 }
 
 void MainWindow::channelClicked(const QModelIndex &index)

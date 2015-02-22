@@ -23,7 +23,7 @@ void AbstractConsumer::unsubscribeFrom(const QString &channel)
 	m_serverConnection->unsubscribeConsumerFrom(this, channel);
 	m_channels.removeAll(channel);
 }
-void AbstractConsumer::emitMsg(const QString &channel, const QString &msg, const QJsonObject &data, const QUuid &replyTo)
+void AbstractConsumer::emitMsg(const QString &channel, const QString &cmd, const QJsonObject &data, const QUuid &replyTo)
 {
-	m_serverConnection->sendFromConsumer(channel, msg, data, replyTo);
+	m_serverConnection->sendFromConsumer(channel, cmd, data, replyTo);
 }

@@ -12,7 +12,7 @@ class AbstractClientConnection : public QObject
 public:
 	virtual ~AbstractClientConnection() {}
 
-	virtual void ready() {}
+	Q_INVOKABLE virtual void ready() {}
 
 public slots:
 	/// This gets called by ConnectionManager, and formats the message before sending it out using toClient

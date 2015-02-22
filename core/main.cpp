@@ -31,11 +31,11 @@ static void handleSignal(int sig, siginfo_t *si, void *unused)
 
 static void setupMainClient(ConnectionManager *mngr, AbstractClientConnection *client)
 {
-	mngr->newConnection(client);
+	//mngr->newConnection(client);
 
 	QThread *thread = new QThread;
 	client->moveToThread(thread);
-	QObject::connect(thread, &QThread::started, client, &AbstractClientConnection::ready);
+	QObject::connect(thread, &QThread::started, client, [mngr, client](){mngr->newConnection(client);});
 	QObject::connect(thread, &QThread::finished, client, &AbstractClientConnection::deleteLater);
 	QObject::connect(client, &AbstractClientConnection::destroyed, thread, &QThread::deleteLater);
 	thread->start();

@@ -2,9 +2,11 @@
 
 #include <QAbstractItemModel>
 #include <QHash>
-#include "AbstractConsumer.h"
 
-class UsersModel : public QAbstractItemModel, public AbstractConsumer
+class SyncedList;
+class ServerConnection;
+
+class UsersModel : public QAbstractItemModel
 {
 	Q_OBJECT
 public:
@@ -16,8 +18,11 @@ public:
 	QModelIndex parent(const QModelIndex &child) const override;
 	QVariant data(const QModelIndex &index, int role) const override;
 
+private slots:
+	void added(const QVariant &id);
+	void removed(const QVariant &id);
+
 private:
-	void consume(const QString &channel, const QString &cmd, const QJsonObject &data) override;
 	QString m_channelId;
 
 	struct Group;
@@ -35,6 +40,7 @@ private:
 	QList<Group *> m_groups;
 	QHash<QString, Group *> m_groupMapping;
 	QHash<QString, User *> m_users;
+	SyncedList *m_syncedList;
 
 	QModelIndex index(Group *group) const;
 };

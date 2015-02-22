@@ -12,6 +12,7 @@ set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++11")
 find_package(Qt5 REQUIRED QUIET COMPONENTS Core Network)
 find_package(Qt5 COMPONENTS Core Gui Widgets WebSockets Sql)
 find_package(LibCommuni)
+find_package(KF5WidgetsAddons)
 set_package_properties(LibCommuni PROPERTIES
 	URL http://communi.github.io/
 	DESCRIPTION "Communi provides a set of tools for enabling IRC connectivity in Qt-based C++ and QML applications."
@@ -54,6 +55,12 @@ set_package_properties(Qt5Sql PROPERTIES
 	TYPE OPTIONAL
 	PURPOSE "Required for building persistant backlog support"
 )
+set_package_properties(KF5WidgetsAddons PROPERTIES
+	URL http://qt.io/
+	DESCRIPTION "Large set of desktop widgets"
+	TYPE OPTIONAL
+	PURPOSE "Required for building the widgets client"
+)
 
 option(BUILD_CORE "Build the TalkTalk Core" ON)
 option(BUILD_WIDGETS_CLIENT "Build the TalkTalk Widgets Client" ON)
@@ -79,6 +86,9 @@ set(CORE_SRC
 	core/tcp/TcpServer.cpp
 	core/tcp/TcpClientConnection.h
 	core/tcp/TcpClientConnection.cpp
+	core/SyncableList.h
+	core/SyncableList.cpp
+	core/ObjectWithId.h
 )
 set(CLIENT_LIB_SRC
 	common/Json.h
@@ -103,14 +113,19 @@ set(CLIENT_LIB_SRC
 	client/core/MonitorModel.cpp
 	client/core/AbstractConsumer.h
 	client/core/AbstractConsumer.cpp
+	client/core/SyncedList.h
+	client/core/SyncedList.cpp
 )
 set(WIDGETS_CLIENT_SRC
 	client/main_widgetsgui.cpp
 	client/widgetsgui/MainWindow.h
 	client/widgetsgui/MainWindow.cpp
+	client/widgetsgui/pages/IRCServersPage.h
+	client/widgetsgui/pages/IRCServersPage.cpp
 )
 set(WIDGETS_CLIENT_UI
 	client/widgetsgui/MainWindow.ui
+	client/widgetsgui/pages/IRCServersPage.ui
 )
 
 set(CORE_EXTRA_QT )
@@ -166,8 +181,9 @@ if(BUILD_WIDGETS_CLIENT)
 	qt5_wrap_ui(WIDGETS_CLIENT_UI_SRC ${WIDGETS_CLIENT_UI})
 	add_executable(TalkTalkClient ${WIDGETS_CLIENT_SRC} ${WIDGETS_CLIENT_UI_SRC})
 	qt5_use_modules(TalkTalkClient Core Network Widgets)
-	target_link_libraries(TalkTalkClient TalkTalkClientLib)
+	target_link_libraries(TalkTalkClient TalkTalkClientLib KF5::WidgetsAddons)
 	set_package_properties(Qt5Widgets PROPERTIES TYPE REQUIRED)
+	set_package_properties(KF5WidgetsAddons PROPERTIES TYPE REQUIRED)
 endif()
 
 feature_summary(FATAL_ON_MISSING_REQUIRED_PACKAGES WHAT ALL)

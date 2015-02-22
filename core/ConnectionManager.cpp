@@ -17,6 +17,7 @@ void ConnectionManager::newConnection(AbstractClientConnection *connection)
 		connect(other, &AbstractClientConnection::broadcast, connection, &AbstractClientConnection::receive);
 	}
 	m_connections.append(connection);
+	QMetaObject::invokeMethod(connection, "ready", Qt::QueuedConnection);
 }
 
 void ConnectionManager::connectionDestroyed(QObject *connection)

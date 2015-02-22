@@ -1,9 +1,10 @@
 #pragma once
 
 #include <QAbstractItemModel>
-#include "AbstractConsumer.h"
 
-class ChannelsModel : public QAbstractItemModel, public AbstractConsumer
+#include "SyncedList.h"
+
+class ChannelsModel : public QAbstractItemModel
 {
 	Q_OBJECT
 public:
@@ -17,9 +18,12 @@ public:
 
 	QString channelId(const QModelIndex &index) const;
 
-private:
-	void consume(const QString &channel, const QString &cmd, const QJsonObject &data) override;
+private slots:
+	void added(const QVariant &id);
+	void removed(const QVariant &id);
+	void changed(const QVariant &id, const QString &property);
 
+private:
 	void channelAdded(const QString &parent, const QString &id);
 	void channelRemoved(const QString &id);
 
@@ -33,12 +37,15 @@ private:
 		enum Type
 		{
 			Pound, // IRC channels etc.
-			User
+			User,
+			Invalid
 		} type;
+		static Type typeFromString(const QString &str);
 	};
 	QList<Channel *> m_rootChannels;
 	QHash<QString, Channel *> m_channels;
 	QHash<QString, QList<Channel *>> m_channelsWithoutParents;
+	SyncedList *m_list;
 
 	QModelIndex index(Channel *channel) const;
 };
