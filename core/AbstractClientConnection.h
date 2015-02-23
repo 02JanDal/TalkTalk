@@ -26,7 +26,7 @@ signals:
 	void newConnection(AbstractClientConnection *client);
 
 protected:
-	explicit AbstractClientConnection(QObject *parent = nullptr);
+	explicit AbstractClientConnection(QObject *parent);
 
 	/// This should be called by the client when it receives data. Emits broadcast.
 	void fromClient(const QJsonObject &obj);

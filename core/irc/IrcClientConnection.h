@@ -15,7 +15,7 @@ class IrcUser;
 class SyncableList;
 class SyncableQObjectList;
 
-class IrcChannel : public QObject, public ObjectWithId
+class IrcWrappedChannel : public QObject, public ObjectWithId
 {
 	Q_OBJECT
 	OBJECTWITHID
@@ -23,7 +23,7 @@ class IrcChannel : public QObject, public ObjectWithId
 	Q_PROPERTY(QString parentId READ parentId CONSTANT)
 	Q_PROPERTY(QString type READ type CONSTANT)
 public:
-	explicit IrcChannel(IrcBuffer *buffer, const QString &parentId, QObject *parent = nullptr);
+	explicit IrcWrappedChannel(IrcBuffer *buffer, const QString &parentId, QObject *parent = nullptr);
 
 	QString parentId() const { return m_parentId; }
 	QObject *buffer() const;
@@ -67,7 +67,7 @@ private:
 	IrcConnection *m_connection;
 	IrcBufferModel *m_bufferModel;
 	SyncableQObjectList *m_channelsList;
-	IrcChannel *m_serverChannel;
+	IrcWrappedChannel *m_serverChannel;
 	QHash<IrcBuffer *, IrcUserModel *> m_userModels;
 	QHash<IrcBuffer *, SyncableQObjectList *> m_syncedUserModels;
 	QHash<IrcBuffer *, QString> m_bufferIds;

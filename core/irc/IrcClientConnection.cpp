@@ -13,15 +13,15 @@
 
 Q_LOGGING_CATEGORY(IRC, "core.irc")
 
-IrcChannel::IrcChannel(IrcBuffer *buffer, const QString &parentId, QObject *parent)
+IrcWrappedChannel::IrcWrappedChannel(IrcBuffer *buffer, const QString &parentId, QObject *parent)
 	: QObject(parent), m_buffer(buffer), m_parentId(parentId)
 {
 }
-QObject *IrcChannel::buffer() const
+QObject *IrcWrappedChannel::buffer() const
 {
 	return m_buffer;
 }
-QString IrcChannel::type() const
+QString IrcWrappedChannel::type() const
 {
 	return m_buffer->isChannel() ? "pound" : "user";
 }
@@ -124,7 +124,6 @@ IrcServer::IrcServer(const QString &displayName, const QString &host, QObject *p
 	connect(m_bufferModel, &IrcBufferModel::messageIgnored, serverBuffer, &IrcBuffer::receiveMessage);
 
 	subscribeTo("chat:channel:" + id().toString());
-	//m_connection->sendCommand(IrcCommand::createJoin("#jan_test_channel"));
 }
 
 QObject *IrcServer::connection() const
@@ -233,8 +232,8 @@ void IrcServer::addedBuffer(IrcBuffer *buffer)
 	Q_ASSERT(!m_bufferIds.contains(buffer));
 
 	const QString parent = buffer->title() == m_connection->host() ? "" : m_bufferIds[m_bufferModel->find(m_connection->host())];
-	IrcChannel *channel = new IrcChannel(buffer, parent, buffer);
-	qDebug() << "Added buffer" << channel->id() << "with parent" << channel->parentId();
+	IrcWrappedChannel *channel = new IrcWrappedChannel(buffer, parent, buffer);
+	qCDebug(IRC) << "Added buffer" << channel->id() << "with parent" << channel->parentId();
 
 	connect(buffer, &IrcBuffer::messageReceived, this, &IrcServer::messageReceived);
 	m_bufferIds.insert(buffer, channel->id().toString());
@@ -266,7 +265,7 @@ void IrcServer::messageReceived(IrcMessage *msg)
 					   {"content", IrcMessageFormatter::messageContent(msg)},
 					   {"from", IrcMessageFormatter::messageSource(msg)},
 					   {"type", type},
-					   {"timestamp", msg->timeStamp().toMSecsSinceEpoch()}
+					   {"timestamp", QString::number(msg->timeStamp().toMSecsSinceEpoch())}
 				   });
 }
 
@@ -295,6 +294,7 @@ IrcClientConnection::IrcClientConnection(QObject *parent)
 void IrcClientConnection::ready()
 {
 	emit newConnection(m_servers);
+	qCDebug(IRC) << "IRC enabled!";
 }
 void IrcClientConnection::toClient(const QJsonObject &obj)
 {

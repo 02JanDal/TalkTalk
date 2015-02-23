@@ -76,7 +76,7 @@ void ChannelModel::consume(const QString &channel, const QString &cmd, const QJs
 			Message msg;
 			msg.source = ensureString(data, "from");
 			msg.message = ensureString(data, "content");
-			msg.timestamp = QDateTime::fromMSecsSinceEpoch(ensureInteger(data, "timestamp"));
+			msg.timestamp = QDateTime::fromMSecsSinceEpoch(ensureString(data, "timestamp").toULongLong());
 
 			const QString type = ensureString(data, "type");
 			if (type == "normal")

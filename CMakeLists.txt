@@ -64,10 +64,14 @@ set_package_properties(KF5WidgetsAddons PROPERTIES
 
 option(BUILD_CORE "Build the TalkTalk Core" ON)
 option(BUILD_WIDGETS_CLIENT "Build the TalkTalk Widgets Client" ON)
-option(BUILD_BACKLOG "Enable persisting backlog to a database" ON)
+option(BUILD_CORE_BACKLOG "Enable persisting backlog to a database" ON)
+option(BUILD_CORE_WEBSOCKETS "Make the core accept WebSocket connections" ON)
+option(BUILD_CORE_TCP "Make the core accept TCP connections" ON)
 add_feature_info(Core BUILD_CORE "Build the TalkTalk Core")
 add_feature_info(WidgetsClient BUILD_WIDGETS_CLIENT "Build the TalkTalk Widgets Client")
-add_feature_info(Backlog BUILD_BACKLOG "Build support for persisting the backlog to a database")
+add_feature_info(Backlog BUILD_CORE_BACKLOG "Build the core with support for persisting the backlog to a database")
+add_feature_info(WebSockets BUILD_CORE_WEBSOCKETS "Build the core with support for accepting WebSocket connections")
+add_feature_info(Tcp BUILD_CORE_TCP "Build the core with support for accepting TCP connections")
 
 set(CORE_SRC
 	common/Json.h
@@ -75,20 +79,15 @@ set(CORE_SRC
 	common/FileSystem.h
 	common/FileSystem.cpp
 	common/Exception.h
-	common/TcpUtils.h
-	common/TcpUtils.cpp
 
 	core/ConnectionManager.h
 	core/ConnectionManager.cpp
 	core/AbstractClientConnection.h
 	core/AbstractClientConnection.cpp
-	core/tcp/TcpServer.h
-	core/tcp/TcpServer.cpp
-	core/tcp/TcpClientConnection.h
-	core/tcp/TcpClientConnection.cpp
 	core/SyncableList.h
 	core/SyncableList.cpp
 	core/ObjectWithId.h
+	core/Plugin.h
 )
 set(CLIENT_LIB_SRC
 	common/Json.h
@@ -136,6 +135,8 @@ if(${Qt5WebSockets_FOUND})
 		core/websockets/WebSocketClientConnection.cpp
 		core/websockets/WebSocketServer.h
 		core/websockets/WebSocketServer.cpp
+		core/websockets/WebSocketsPlugin.h
+		core/websockets/WebSocketsPlugin.cpp
 	)
 	list(APPEND CORE_EXTRA_QT WebSockets)
 	add_definitions(-DTALKTALK_CORE_WEBSOCKETS)
@@ -146,19 +147,39 @@ if(${LIBCOMMUNI_FOUND})
 		core/irc/IrcClientConnection.cpp
 		core/irc/IrcMessageFormatter.h
 		core/irc/IrcMessageFormatter.cpp
+		core/irc/IrcPlugin.h
+		core/irc/IrcPlugin.cpp
 	)
 	list(APPEND CORE_EXTRA_LIBS IrcCore IrcModel IrcUtil)
 	add_definitions(-DTALKTALK_CORE_IRC)
 	set_package_properties(Qt5Network PROPERTIES TYPE REQUIRED)
 endif()
-if(BUILD_BACKLOG)
+if(BUILD_CORE_BACKLOG)
 	list(APPEND CORE_SRC
 		core/backlog/BacklogClientConnection.h
 		core/backlog/BacklogClientConnection.cpp
+		core/backlog/BacklogPlugin.h
+		core/backlog/BacklogPlugin.cpp
+		core/backlog/SqlHelpers.h
+		core/backlog/SqlHelpers.cpp
 	)
 	list(APPEND CORE_EXTRA_QT Sql)
 	add_definitions(-DTALKTALK_CORE_BACKLOG)
 	set_package_properties(Qt5Sql PROPERTIES TYPE REQUIRED)
+endif()
+if(BUILD_CORE_TCP)
+	list(APPEND CORE_SRC
+		common/TcpUtils.h
+		common/TcpUtils.cpp
+		core/tcp/TcpServer.h
+		core/tcp/TcpServer.cpp
+		core/tcp/TcpClientConnection.h
+		core/tcp/TcpClientConnection.cpp
+		core/tcp/TcpPlugin.h
+		core/tcp/TcpPlugin.cpp
+	)
+	list(APPEND CORE_EXTRA_QT Network)
+	add_definitions(-DTALKTALK_CORE_TCP)
 endif()
 
 if(BUILD_CORE)

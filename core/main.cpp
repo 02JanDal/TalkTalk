@@ -3,17 +3,25 @@
 #include <QDebug>
 #include <QJsonArray>
 #include <QThread>
+#include <QtPlugin>
 
-#include "tcp/TcpServer.h"
 #include "ConnectionManager.h"
 #include "AbstractClientConnection.h"
 
+#ifdef TALKTALK_CORE_TCP
+# include "tcp/TcpPlugin.h"
+#endif
+
 #ifdef TALKTALK_CORE_WEBSOCKETS
-# include "websockets/WebSocketServer.h"
+# include "websockets/WebSocketsPlugin.h"
 #endif
 
 #ifdef TALKTALK_CORE_IRC
-# include "irc/IrcClientConnection.h"
+# include "irc/IrcPlugin.h"
+#endif
+
+#ifdef TALKTALK_CORE_BACKLOG
+# include "backlog/BacklogPlugin.h"
 #endif
 
 #ifdef Q_OS_UNIX
@@ -58,26 +66,48 @@ int main(int argc, char **argv)
 	app.setApplicationName("TalkTalkCore");
 	app.setOrganizationName("Jan Dalheimer");
 
+	QList<Plugin *> plugins;
+	plugins
+		#ifdef TALKTALK_CORE_WEBSOCKETS
+			<< new WebSocketsPlugin
+		   #endif
+		   #ifdef TALKTALK_CORE_TCP
+			<< new TcpPlugin
+		   #endif
+		   #ifdef TALKTALK_CORE_IRC
+			<< new IrcPlugin
+		   #endif
+		   #ifdef TALKTALK_CORE_BACKLOG
+			<< new BacklogPlugin
+		   #endif
+			   ;
+
 	QCommandLineParser parser;
 	parser.addHelpOption();
 	parser.addVersionOption();
-	parser.addOption(QCommandLineOption("tcp-listen", "The IP address to listen on for TCP connections, 0.0.0.0 for all", "IP", "0.0.0.0"));
-	parser.addOption(QCommandLineOption("tcp-port", "The port to listen on for TCP connections", "PORT", "11101"));
-	parser.addOption(QCommandLineOption("ws-listen", "The IP address to listen on for WebSocket connections, 0.0.0.0 for all", "IP", "0.0.0.0"));
-	parser.addOption(QCommandLineOption("ws-port", "The port to listen on for WebSocket connections", "PORT", "11102"));
+	for (const Plugin *plugin : plugins)
+	{
+		parser.addOptions(plugin->cliOptions());
+	}
 	parser.process(app);
+
+	for (const Plugin *plugin : plugins)
+	{
+		if (!plugin->handleArguments(parser))
+		{
+			return 0;
+		}
+	}
 
 	ConnectionManager *mngr = new ConnectionManager;
 
-	setupMainClient(mngr, new TcpServer(QHostAddress(parser.value("tcp-listen")), parser.value("tcp-port").toULong()));
-
-#ifdef TALKTALK_CORE_WEBSOCKETS
-	setupMainClient(mngr, new WebSocketServer(QHostAddress(parser.value("ws-listen")), parser.value("ws-port").toULong()));
-#endif
-
-#ifdef TALKTALK_CORE_IRC
-	setupMainClient(mngr, new IrcClientConnection);
-#endif
+	for (const Plugin *plugin : plugins)
+	{
+		for (AbstractClientConnection *client : plugin->clients(parser))
+		{
+			setupMainClient(mngr, client);
+		}
+	}
 
 	return app.exec();
 }
