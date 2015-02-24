@@ -7,11 +7,11 @@ set(CMAKE_MODULE_PATH "${CMAKE_SOURCE_DIR}/cmake")
 set(CMAKE_AUTOMOC ON)
 set(CMAKE_INCLUDE_CURRENT_DIR ON)
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++11")
-#include_directories(${CMAKE_SOURCE_DIR})
 
 find_package(Qt5 REQUIRED QUIET COMPONENTS Core Network)
 find_package(Qt5 COMPONENTS Core Gui Widgets WebSockets Sql)
 find_package(LibCommuni)
+find_package(KF5GuiAddons)
 find_package(KF5WidgetsAddons)
 set_package_properties(LibCommuni PROPERTIES
 	URL http://communi.github.io/
@@ -56,8 +56,14 @@ set_package_properties(Qt5Sql PROPERTIES
 	PURPOSE "Required for building persistant backlog support"
 )
 set_package_properties(KF5WidgetsAddons PROPERTIES
-	URL http://qt.io/
+	URL https://www.kde.org/
 	DESCRIPTION "Large set of desktop widgets"
+	TYPE OPTIONAL
+	PURPOSE "Required for building the widgets client"
+)
+set_package_properties(KF5GuiAddons PROPERTIES
+	URL https://www.kde.org/
+	DESCRIPTION "The KDE GUI addons provide utilities for graphical user interfaces in the areas of colors, fonts, text, images, keyboard input."
 	TYPE OPTIONAL
 	PURPOSE "Required for building the widgets client"
 )
@@ -79,6 +85,8 @@ set(CORE_SRC
 	common/FileSystem.h
 	common/FileSystem.cpp
 	common/Exception.h
+	common/BaseConfigObject.h
+	common/BaseConfigObject.cpp
 
 	core/ConnectionManager.h
 	core/ConnectionManager.cpp
@@ -121,6 +129,8 @@ set(WIDGETS_CLIENT_SRC
 	client/widgetsgui/MainWindow.cpp
 	client/widgetsgui/pages/IRCServersPage.h
 	client/widgetsgui/pages/IRCServersPage.cpp
+	client/widgetsgui/ChatView.h
+	client/widgetsgui/ChatView.cpp
 )
 set(WIDGETS_CLIENT_UI
 	client/widgetsgui/MainWindow.ui
@@ -145,6 +155,8 @@ if(${LIBCOMMUNI_FOUND})
 	list(APPEND CORE_SRC
 		core/irc/IrcClientConnection.h
 		core/irc/IrcClientConnection.cpp
+		core/irc/IrcServer.h
+		core/irc/IrcServer.cpp
 		core/irc/IrcMessageFormatter.h
 		core/irc/IrcMessageFormatter.cpp
 		core/irc/IrcPlugin.h
@@ -202,9 +214,10 @@ if(BUILD_WIDGETS_CLIENT)
 	qt5_wrap_ui(WIDGETS_CLIENT_UI_SRC ${WIDGETS_CLIENT_UI})
 	add_executable(TalkTalkClient ${WIDGETS_CLIENT_SRC} ${WIDGETS_CLIENT_UI_SRC})
 	qt5_use_modules(TalkTalkClient Core Network Widgets)
-	target_link_libraries(TalkTalkClient TalkTalkClientLib KF5::WidgetsAddons)
+	target_link_libraries(TalkTalkClient TalkTalkClientLib KF5::GuiAddons KF5::WidgetsAddons)
 	set_package_properties(Qt5Widgets PROPERTIES TYPE REQUIRED)
 	set_package_properties(KF5WidgetsAddons PROPERTIES TYPE REQUIRED)
+	set_package_properties(KF5GuiAddons PROPERTIES TYPE REQUIRED)
 endif()
 
 feature_summary(FATAL_ON_MISSING_REQUIRED_PACKAGES WHAT ALL)

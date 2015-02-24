@@ -38,6 +38,7 @@ public:
 	virtual int size() const = 0;
 	bool contains(const QVariant &index) const { return findIndex(index) != -1; }
 	int find(const QString &property, const QVariant &value);
+	virtual QStringList keys() const = 0;
 
 	virtual void add(const QMap<QString, QVariant> &values, const QUuid &origin = QUuid()) = 0;
 	void add(const QVariant &index, const QMap<QString, QVariant> &values, const QUuid &origin = QUuid());
@@ -48,6 +49,9 @@ public:
 	virtual QVariant transformFromList(const QString &property, const QVariant &value) const { return value; }
 
 	virtual int findIndex(const QVariant &index) const = 0;
+
+signals:
+	void changed(const int index, const QString &property);
 
 protected:
 	QString m_channel;
@@ -75,6 +79,7 @@ public:
 	void remove(const int index, const QUuid &origin = QUuid()) override;
 	int size() const override { return m_rows.size(); }
 	int findIndex(const QVariant &index) const override;
+	QStringList keys() const override;
 
 private:
 	QList<QMap<QString, QVariant>> m_rows;
@@ -93,8 +98,10 @@ public:
 	QVariantMap getAll(const int index) const override;
 	void remove(const int index, const QUuid &origin = QUuid()) override;
 	int size() const override { return m_objects.size(); }
-	QObject *get(const int index) const { return m_objects.at(index); }
+	template<typename T>
+	T *get(const int index) const { return qobject_cast<T *>(m_objects.at(index)); }
 	int findIndex(const QVariant &index) const override;
+	QStringList keys() const override;
 
 	void addPropertyMapping(const QString &objectProperty, const QString &externalProperty);
 	void addPropertyMapping(const QString &wrappedObjectProperty, const QString &objectProperty, const QString &externalProperty);

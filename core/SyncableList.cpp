@@ -141,6 +141,7 @@ void SyncableList::set(const int index, const QString &property, const QVariant 
 	m_rows[index].insert(property, value);
 	emit broadcast(m_channel, command("changed"), {{m_indexProperty, toJson(m_rows.at(index).value(m_indexProperty))},
 												  {property, toJson(value)}}, origin);
+	emit changed(index, property);
 }
 QVariant SyncableList::get(const int index, const QString &property) const
 {
@@ -198,6 +199,15 @@ int SyncableList::findIndex(const QVariant &index) const
 		}
 	}
 	return -1;
+}
+QStringList SyncableList::keys() const
+{
+	QSet<QString> out;
+	for (const QVariantMap &row : m_rows)
+	{
+		out |= row.keys().toSet();
+	}
+	return out.toList();
 }
 
 SyncableQObjectList::SyncableQObjectList(const QString &channel, const QString &cmdPrefix, const QString &indexProperty, const Flags &flags, QObject *parent)
@@ -276,6 +286,7 @@ void SyncableQObjectList::set(const int index, const QString &property, const QV
 		QObject *wrapped = wrappedObject(m_objects.at(index), property);
 		wrapped->setProperty(m_extToWrappedMapping[property].second.toUtf8().constData(), transformToList(property, value));
 	}
+	emit changed(index, property);
 }
 QVariant SyncableQObjectList::get(const int index, const QString &property) const
 {
@@ -312,6 +323,10 @@ void SyncableQObjectList::remove(const int index, const QUuid &origin)
 int SyncableQObjectList::findIndex(const QVariant &index) const
 {
 	return m_objects.indexOf(m_mapping.value(index));
+}
+QStringList SyncableQObjectList::keys() const
+{
+	return m_extPropToObjProp.keys() + m_extToWrappedMapping.keys();
 }
 QVariantMap SyncableQObjectList::objToExt(QObject *obj) const
 {
@@ -387,6 +402,7 @@ void SyncableQObjectList::propertyChanged()
 	{
 		emit broadcast(m_channel, command("changed"), {{m_indexProperty, toJson(indexValue(obj))},
 													  {property, toJson(get(m_objects.indexOf(obj), property))}});
+		emit changed(m_objects.indexOf(obj), property);
 	}
 }
 void SyncableQObjectList::wrappedPropertyChanged()
@@ -396,6 +412,7 @@ void SyncableQObjectList::wrappedPropertyChanged()
 	{
 		emit broadcast(m_channel, command("changed"), {{m_indexProperty, toJson(indexValue(obj))},
 					   {property, toJson(get(m_objects.indexOf(obj), property))}});
+		emit changed(m_objects.indexOf(sender()), property);
 	}
 }
 

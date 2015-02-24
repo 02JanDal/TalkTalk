@@ -2,10 +2,11 @@
 
 class IrcMessage;
 class QString;
+class QStringList;
 
 namespace IrcMessageFormatter
 {
 QString messageType(IrcMessage *message);
 QString messageSource(IrcMessage *message);
-QString messageContent(IrcMessage* message);
+QStringList messageContent(IrcMessage* message);
 }

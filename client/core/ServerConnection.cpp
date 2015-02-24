@@ -17,7 +17,8 @@ ServerConnection::ServerConnection(const QString &host, const quint16 port, QObj
 
 ServerConnection::~ServerConnection()
 {
-	for (AbstractConsumer *consumer : m_consumers)
+	QList<AbstractConsumer *> tmp = m_consumers;
+	for (AbstractConsumer *consumer : tmp)
 	{
 		delete consumer;
 	}

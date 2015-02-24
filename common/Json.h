@@ -255,6 +255,17 @@ T ensureIsType(const QJsonObject &parent, const QString &key, const T default_,
 }
 
 template <typename T>
+QList<T> ensureIsArrayOf(const QJsonDocument &doc)
+{
+	const QJsonArray array = ensureArray(doc);
+	QList<T> out;
+	for (const QJsonValue val : array)
+	{
+		out.append(ensureIsType<T>(val, Required, "Document"));
+	}
+	return out;
+}
+template <typename T>
 QList<T> ensureIsArrayOf(const QJsonValue &value, const Requirement = Required,
 						 const QString &what = "Value")
 {

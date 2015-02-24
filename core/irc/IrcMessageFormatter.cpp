@@ -66,7 +66,7 @@ QString IrcMessageFormatter::messageSource(IrcMessage *message)
 	}
 }
 
-QString IrcMessageFormatter::messageContent(IrcMessage* message)
+QStringList IrcMessageFormatter::messageContent(IrcMessage* message)
 {
 	switch (message->type())
 	{
@@ -75,11 +75,11 @@ QString IrcMessageFormatter::messageContent(IrcMessage* message)
 		const QString channel = static_cast<IrcJoinMessage *>(message)->channel();
 		if (message->isOwn())
 		{
-			return QObject::tr("You have joined %1 as %2").arg(channel, message->nick());
+			return QStringList() << QObject::tr("You have joined %1 as %2").arg(channel, message->nick());
 		}
 		else
 		{
-			return QObject::tr("%1 has joined %2").arg(message->nick(), channel);
+			return QStringList() << QObject::tr("%1 has joined %2").arg(message->nick(), channel);
 		}
 	}
 	case IrcMessage::Nick:
@@ -87,11 +87,11 @@ QString IrcMessageFormatter::messageContent(IrcMessage* message)
 		IrcNickMessage *msg = static_cast<IrcNickMessage *>(message);
 		if (message->isOwn())
 		{
-			return QObject::tr("You are now known as %1").arg(msg->newNick());
+			return QStringList() << QObject::tr("You are now known as %1").arg(msg->newNick());
 		}
 		else
 		{
-			return QObject::tr("%1 is now known as %2").arg(msg->oldNick(), msg->newNick());
+			return QStringList() << QObject::tr("%1 is now known as %2").arg(msg->oldNick(), msg->newNick());
 		}
 	}
 	case IrcMessage::Kick:
@@ -99,22 +99,22 @@ QString IrcMessageFormatter::messageContent(IrcMessage* message)
 		IrcKickMessage *msg = static_cast<IrcKickMessage *>(message);
 		if (message->isOwn())
 		{
-			return QObject::tr("You where kicked from %1 by %2: %3").arg(msg->channel(), msg->nick(), msg->reason());
+			return QStringList() << QObject::tr("You where kicked from %1 by %2: %3").arg(msg->channel(), msg->nick(), msg->reason());
 		}
 		else
 		{
-			return QObject::tr("%1 was kicked from %2 by %3: %4").arg(msg->user(), msg->channel(), msg->nick(), msg->reason());
+			return QStringList() << QObject::tr("%1 was kicked from %2 by %3: %4").arg(msg->user(), msg->channel(), msg->nick(), msg->reason());
 		}
 	}
 	case IrcMessage::Part:
 	{
 		IrcPartMessage *msg = static_cast<IrcPartMessage *>(message);
-		return QObject::tr("%1 (%2) has left %3 (%4)").arg(msg->nick(), msg->ident(), msg->channel(), msg->reason());
+		return QStringList() << QObject::tr("%1 (%2) has left %3 (%4)").arg(msg->nick(), msg->ident(), msg->channel(), msg->reason());
 	}
 	case IrcMessage::Quit:
 	{
 		IrcQuitMessage *msg = static_cast<IrcQuitMessage *>(message);
-		return QObject::tr("%1 (%2) has quit (%3)").arg(msg->nick(), msg->ident(), msg->reason());
+		return QStringList() << QObject::tr("%1 (%2) has quit (%3)").arg(msg->nick(), msg->ident(), msg->reason());
 	}
 	case IrcMessage::Capability:
 	case IrcMessage::Mode:
@@ -122,46 +122,46 @@ QString IrcMessageFormatter::messageContent(IrcMessage* message)
 		IrcModeMessage *msg = static_cast<IrcModeMessage *>(message);
 		if (msg->isReply())
 		{
-			return QObject::tr("%1 mode is %2 %3").arg(msg->target(), msg->mode(), msg->arguments().join(' '));
+			return QStringList() << QObject::tr("%1 mode is %2 %3").arg(msg->target(), msg->mode(), msg->arguments().join(' '));
 		}
 		else
 		{
-			return QObject::tr("%1 sets mode %2 %3 %4").arg(msg->nick(), msg->target(), msg->mode(), msg->arguments().join(' '));
+			return QStringList() << QObject::tr("%1 sets mode %2 %3 %4").arg(msg->nick(), msg->target(), msg->mode(), msg->arguments().join(' '));
 		}
 	}
 	case IrcMessage::Topic:
 	{
 		IrcTopicMessage *msg = static_cast<IrcTopicMessage *>(message);
-		return QObject::tr("%1 has changed the topic for %2 to \"%3\"").arg(msg->nick(), msg->channel(), msg->topic());
+		return QStringList() << QObject::tr("%1 has changed the topic for %2 to \"%3\"").arg(msg->nick(), msg->channel(), msg->topic());
 	}
 	case IrcMessage::Invite:
 	{
 		IrcInviteMessage *msg = static_cast<IrcInviteMessage *>(message);
-		return QObject::tr("%1 was invited to %2 by %3").arg(msg->user(), msg->channel(), msg->nick());
+		return QStringList() << QObject::tr("%1 was invited to %2 by %3").arg(msg->user(), msg->channel(), msg->nick());
 	}
 	case IrcMessage::Notice:
-		return static_cast<IrcNoticeMessage *>(message)->content();
+		return QStringList() << static_cast<IrcNoticeMessage *>(message)->content();
 	case IrcMessage::Motd:
-		return static_cast<IrcMotdMessage *>(message)->lines().join('\n');
+		return static_cast<IrcMotdMessage *>(message)->lines();
 	case IrcMessage::Whois:
 	case IrcMessage::Whowas:
 	case IrcMessage::WhoReply:
 	case IrcMessage::Monitor:
-		return "TODO: Implement";
+		return QStringList() << "TODO: Implement";
 	case IrcMessage::Private:
 	{
 		IrcPrivateMessage *msg = static_cast<IrcPrivateMessage *>(message);
 		const QString content = IrcTextFormat().toHtml(msg->content());
 		if (msg->isAction())
 		{
-			return QObject::tr("%1 %2").arg(msg->nick(), content);
+			return QStringList() << QObject::tr("%1 %2").arg(msg->nick(), content);
 		}
 		else
 		{
-			return content;
+			return QStringList() << content;
 		}
 	}
 	default:
-		return QString();
+		return QStringList();
 	}
 }

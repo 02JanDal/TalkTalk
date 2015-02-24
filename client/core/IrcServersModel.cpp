@@ -123,7 +123,7 @@ void IrcServersModel::disconnectServer(const QModelIndex &index)
 
 void IrcServersModel::add(const QString &displayName, const QString &host)
 {
-	emitMsg("irc:servers", "add", {{"displayName", displayName}, {"host", host}, {"userName", "TalkTalk"}, {"nickName", "TalkTalk"}, {"realName", "TalkTalk"}});
+	emitMsg("irc:servers", "add", {{"name", displayName}, {"host", host}});
 }
 void IrcServersModel::remove(const QModelIndex &index)
 {
